@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+
+	"github.com/jbowens/nbagame/endpoints"
 )
 
 type Shotchart struct {
@@ -62,4 +65,34 @@ func GetData() [][]interface{} {
 		fmt.Println("error:", err)
 	}
 	return data.ResultSets[0].RowSet
+}
+
+func GetShots(playerID int) (shotResponse []*endpoints.ShotDetailRow) {
+	params := endpoints.ShotChartDetailParams{
+		ContextMeasure: "FGA",
+		EndPeriod:      10,
+		EndRange:       28800,
+		GameID:         "0021401203",
+		LeagueID:       "00",
+		PlayerID:       2406,
+		Season:         "2014-15",
+		SeasonType:     "Regular Season",
+		StartPeriod:    1,
+		TeamID:         1610612765,
+	}
+	var resp endpoints.ShotChartDetailResponse
+	if err := endpoints.DefaultRequester.Request("shotchartdetail", params, &resp); err != nil {
+		log.Fatal("failed", err)
+	}
+	if len(resp.ShotDetails) == 0 {
+		log.Fatal("empty response for boxcar summary")
+	}
+	shotResponse = resp.ShotDetails
+	/*
+		for _, shot := range resp.ShotDetails {
+			fmt.Printf("%v\t%v\t%v\t%v\t%v\n", shot.Period, shot.MinutesRemaining*60+shot.SecondsRemaining, shot.ShotMade, shot.LocationX, shot.LocationY)
+		}
+	*/
+
+	return shotResponse
 }

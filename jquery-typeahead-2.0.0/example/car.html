@@ -1,0 +1,82 @@
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <title></title>
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link rel="stylesheet" href="../src/jquery.typeahead.css">
+
+    <script src="http://code.jquery.com/jquery-2.1.0.min.js"></script>
+    <script src="../src/jquery.typeahead.js"></script>
+</head>
+<body>
+
+<div style="width: 100%; max-width: 800px; margin: 0 auto;">
+
+    <form id="form-car_v1" name="form-car_v1">
+      <div class="typeahead-container">
+          <div class="typeahead-field">
+
+              <span class="typeahead-query">
+                  <input id="car_v1-query" name="car_v1[query]" type="search" placeholder="Search" autocomplete="off">
+              </span>
+              <span class="typeahead-button">
+                  <button type="submit">
+                      <i class="typeahead-search-icon"></i>
+                  </button>
+              </span>
+
+          </div>
+      </div>
+  </form>
+<script>
+$('#car_v1-query').typeahead({
+minLength: 1,
+order: "asc",
+offset: true,
+hint: true,
+source: {
+    car: {
+        data: ["My first added brand", "M1 added brand at start"],
+        url: {
+            type: "POST",
+            url: "http://runningcoder.org/jquerytypeahead/car_v1.json",
+            data: {
+                myKey: "myValue"
+            }
+        }
+    }
+},
+callback: {
+    onClick: function (node, a, item, event) {
+
+        console.log(node)
+        console.log(a)
+        console.log(item)
+        console.log(event)
+
+        console.log('onClick function triggered');
+
+    },
+    onSubmit: function (node, form, item, event) {
+
+        console.log(node)
+        console.log(form)
+        console.log(item)
+        console.log(event)
+
+        console.log('onSubmit override function triggered');
+
+    }
+}
+});
+</script>
+
+
+</div>
+
+</body>
+</html>
