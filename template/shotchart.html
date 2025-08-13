@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBA Shot Chart - {{.PagePlayerName}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .player-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .player-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .search-container {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .search-box {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .search-input:focus {
+            border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+        }
+        
+        .chart-container {
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 0 auto;
+        }
+        
+        #chart_div {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .court-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            opacity: 0.8;
+        }
+        
+        .stats-info {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: left;
+        }
+        
+        .stats-info h3 {
+            color: #2a5298;
+            margin-bottom: 10px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2a5298;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .player-info {
+                flex-direction: column;
+            }
+            
+            .chart-container {
+                padding: 15px;
+            }
+            
+            #chart_div {
+                width: 100% !important;
+                height: 400px !important;
+            }
+        }
+    </style>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src="typeahead.bundle.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NBA Shot Chart Visualizer</h1>
+            <div class="player-info">
+                {{if .PlayerImage}}
+                <img src="{{.PlayerImage}}" alt="{{.PagePlayerName}}" class="player-image" onerror="this.style.display='none'">
+                {{end}}
+                <div>
+                    <h2>{{if .PagePlayerName}}{{.PagePlayerName}}{{else}}Select a Player{{end}}</h2>
+                    <p>2014-15 NBA Season</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="search-container">
+            <form method="post" action="/">
+                <div class="search-box">
+                    <input type="text" 
+                           name="names" 
+                           class="search-input typeahead" 
+                           placeholder="Search for an NBA player..."
+                           autocomplete="off">
+                </div>
+            </form>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading shot chart data...</p>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-wrapper">
+                <div id="chart_div"></div>
+            </div>
+            
+            {{if .PagePlayerName}}
+            <div class="stats-info">
+                <h3>Shot Chart Information</h3>
+                <p><strong>Player:</strong> {{.PagePlayerName}}</p>
+                <p><strong>Season:</strong> 2014-15 Regular Season</p>
+                <p><strong>Chart Type:</strong> All Field Goal Attempts</p>
+                <p><strong>Tooltip:</strong> Hover over dots to see shot distance</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // Load Google Charts
+        google.charts.load('current', {'packages':['corechart']});
+        google.charts.setOnLoadCallback(drawChart);
+        
+        // Initialize typeahead
+        var players = [{{.AllNames}}];
+        
+        $('.typeahead').typeahead({
+            hint: true,
+            highlight: true,
+            minLength: 1
+        }, {
+            name: 'players',
+            source: substringMatcher(players)
+        });
+        
+        function substringMatcher(strs) {
+            return function findMatches(q, cb) {
+                var matches, substringRegex;
+                matches = [];
+                substrRegex = new RegExp(q, 'i');
+                $.each(strs, function(i, str) {
+                    if (substrRegex.test(str)) {
+                        matches.push(str);
+                    }
+                });
+                cb(matches);
+            };
+        }
+        
+        // Show loading when form is submitted
+        $('form').on('submit', function() {
+            $('#loading').addClass('show');
+        });
+        
+        function drawChart() {
+            var data = new google.visualization.DataTable();
+            data.addColumn('number', 'X Position');
+            data.addColumn('number', 'Y Position');
+            data.addColumn({type: 'string', role: 'tooltip'});
+            
+            data.addRows([{{.ShotData}}]);
+
+            var options = {
+                backgroundColor: {fill: 'transparent'},
+                title: '{{if .PagePlayerName}}{{.PagePlayerName}} Shot Chart{{else}}NBA Shot Chart{{end}}',
+                titleTextStyle: {
+                    color: '#2a5298',
+                    fontSize: 18,
+                    bold: true
+                },
+                hAxis: {
+                    ticks: [-300, -150, 0, 150, 300],
+                    baselineColor: 'none',
+                    gridlines: {color: 'none', count: 0},
+                    textStyle: {color: 'none'}
+                },
+                vAxis: {
+                    ticks: [0, 150, 300],
+                    baselineColor: 'none',
+                    gridlines: {color: 'none', count: 0},
+                    textStyle: {color: 'none'}
+                },
+                legend: 'none',
+                pointSize: 4,
+                colors: ['#ff6b6b'],
+                chartArea: {
+                    left: 50,
+                    top: 50,
+                    width: '85%',
+                    height: '85%'
+                },
+                width: 800,
+                height: 500
+            };
+
+            var chart = new google.visualization.ScatterChart(document.getElementById('chart_div'));
+            chart.draw(data, options);
+            
+            // Hide loading
+            $('#loading').removeClass('show');
+        }
+    </script>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</body>
+</html>
