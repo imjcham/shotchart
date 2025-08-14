@@ -6,10 +6,21 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/jbowens/nbagame/endpoints"
 )
 
+// ShotDetailRow represents a single shot attempt with location and distance information
+type ShotDetailRow struct {
+	LocationX    int `json:"locationX"`
+	LocationY    int `json:"locationY"`
+	ShotDistance int `json:"shotDistance"`
+	ShotMade     int `json:"shotMade"`
+	Period       int `json:"period"`
+}
+
+// Shotchart represents the complete response from the NBA stats API
 type Shotchart struct {
 	Parameters struct {
 		AheadBehind    interface{} `json:"AheadBehind"`
@@ -52,47 +63,141 @@ type Shotchart struct {
 }
 
 const (
-	url = "http://stats.nba.com/stats/shotchartdetail?Period=0&VsConference=&LeagueID=00&LastNGames=0&TeamID=0&Position=&Location=&Outcome=&ContextMeasure=FGA&DateFrom=&StartPeriod=&DateTo=&OpponentTeamID=0&ContextFilter=&RangeType=&Season=2014-15&AheadBehind=&PlayerID=201935&EndRange=&VsDivision=&PointDiff=&RookieYear=&GameSegment=&Month=0&ClutchTime=&StartRange=&EndPeriod=&SeasonType=Regular+Season&SeasonSegment=&GameID="
+	// NBA Stats API endpoint for shot chart data
+	baseURL = "http://stats.nba.com/stats/shotchartdetail"
+	
+	// Default season for shot data
+	defaultSeason = "2014-15"
+	
+	// HTTP client timeout
+	requestTimeout = 10 * time.Second
 )
 
-func GetData() [][]interface{} {
-	jsonBlob, _ := http.Get(url)
-	shotcharts, _ := ioutil.ReadAll(jsonBlob.Body)
-
-	var data Shotchart
-	err := json.Unmarshal(shotcharts, &data)
-	if err != nil {
-		fmt.Println("error:", err)
+// createHTTPClient creates an HTTP client with proper headers for NBA Stats API
+func createHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: requestTimeout,
 	}
-	return data.ResultSets[0].RowSet
 }
 
-func GetShots(playerID int) (shotResponse []*endpoints.ShotDetailRow) {
+// GetData fetches raw shot chart data from NBA Stats API (legacy function)
+func GetData() ([][]interface{}, error) {
+	url := fmt.Sprintf("%s?Period=0&VsConference=&LeagueID=00&LastNGames=0&TeamID=0&Position=&Location=&Outcome=&ContextMeasure=FGA&DateFrom=&StartPeriod=&DateTo=&OpponentTeamID=0&ContextFilter=&RangeType=&Season=%s&AheadBehind=&PlayerID=201935&EndRange=&VsDivision=&PointDiff=&RookieYear=&GameSegment=&Month=0&ClutchTime=&StartRange=&EndPeriod=&SeasonType=Regular+Season&SeasonSegment=&GameID=", 
+		baseURL, defaultSeason)
+
+	client := createHTTPClient()
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch shot data: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var data Shotchart
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	if len(data.ResultSets) == 0 {
+		return nil, fmt.Errorf("no result sets in API response")
+	}
+
+	return data.ResultSets[0].RowSet, nil
+}
+
+// GetShots fetches shot chart data for a specific player using the nbagame library
+func GetShots(playerID int) ([]*ShotDetailRow, error) {
+	if playerID <= 0 {
+		return nil, fmt.Errorf("invalid player ID: %d", playerID)
+	}
+
+	// Configure shot chart parameters
 	params := endpoints.ShotChartDetailParams{
 		ContextMeasure: "FGA",
 		EndPeriod:      10,
 		EndRange:       28800,
-		GameID:         "0021401203",
 		LeagueID:       "00",
-		PlayerID:       2406,
-		Season:         "2014-15",
+		PlayerID:       playerID,
+		Season:         defaultSeason,
 		SeasonType:     "Regular Season",
 		StartPeriod:    1,
-		TeamID:         1610612765,
+		TeamID:         0, // All teams
 	}
+
 	var resp endpoints.ShotChartDetailResponse
 	if err := endpoints.DefaultRequester.Request("shotchartdetail", params, &resp); err != nil {
-		log.Fatal("failed", err)
+		return nil, fmt.Errorf("failed to request shot chart data for player %d: %w", playerID, err)
 	}
-	if len(resp.ShotDetails) == 0 {
-		log.Fatal("empty response for boxcar summary")
-	}
-	shotResponse = resp.ShotDetails
-	/*
-		for _, shot := range resp.ShotDetails {
-			fmt.Printf("%v\t%v\t%v\t%v\t%v\n", shot.Period, shot.MinutesRemaining*60+shot.SecondsRemaining, shot.ShotMade, shot.LocationX, shot.LocationY)
-		}
-	*/
 
-	return shotResponse
+	if len(resp.ShotDetails) == 0 {
+		log.Printf("No shot data found for player ID: %d", playerID)
+		return []*ShotDetailRow{}, nil
+	}
+
+	// Convert to our custom format for consistency
+	var shots []*ShotDetailRow
+	for _, shot := range resp.ShotDetails {
+		shotRow := &ShotDetailRow{
+			LocationX:    shot.LocationX,
+			LocationY:    shot.LocationY,
+			ShotDistance: shot.ShotDistance,
+			ShotMade:     shot.ShotMade,
+			Period:       shot.Period,
+		}
+		shots = append(shots, shotRow)
+	}
+
+	log.Printf("Retrieved %d shots for player ID: %d", len(shots), playerID)
+	return shots, nil
+}
+
+// GetShotsByTeam fetches shot chart data for all players on a specific team
+func GetShotsByTeam(teamID int, season string) ([]*ShotDetailRow, error) {
+	if teamID <= 0 {
+		return nil, fmt.Errorf("invalid team ID: %d", teamID)
+	}
+
+	if season == "" {
+		season = defaultSeason
+	}
+
+	params := endpoints.ShotChartDetailParams{
+		ContextMeasure: "FGA",
+		EndPeriod:      10,
+		EndRange:       28800,
+		LeagueID:       "00",
+		PlayerID:       0, // All players
+		Season:         season,
+		SeasonType:     "Regular Season",
+		StartPeriod:    1,
+		TeamID:         teamID,
+	}
+
+	var resp endpoints.ShotChartDetailResponse
+	if err := endpoints.DefaultRequester.Request("shotchartdetail", params, &resp); err != nil {
+		return nil, fmt.Errorf("failed to request shot chart data for team %d: %w", teamID, err)
+	}
+
+	var shots []*ShotDetailRow
+	for _, shot := range resp.ShotDetails {
+		shotRow := &ShotDetailRow{
+			LocationX:    shot.LocationX,
+			LocationY:    shot.LocationY,
+			ShotDistance: shot.ShotDistance,
+			ShotMade:     shot.ShotMade,
+			Period:       shot.Period,
+		}
+		shots = append(shots, shotRow)
+	}
+
+	log.Printf("Retrieved %d shots for team ID: %d", len(shots), teamID)
+	return shots, nil
 }
