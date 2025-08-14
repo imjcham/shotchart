@@ -1,81 +1,109 @@
 # NBA Shot Chart Visualizer
 
-A Go web application that creates interactive basketball shot charts using NBA API data and Google Charts.
+A modern web application for visualizing NBA player shot charts with a React frontend and Python Flask backend.
 
-## Features
+## Architecture
 
-- Interactive shot chart visualization
-- Player search with typeahead functionality
-- Real-time NBA shot data from stats.nba.com
-- Responsive web design
-- Basketball court overlay for accurate shot positioning
+- **Frontend**: React 18 with TypeScript, Vite, D3.js, Tailwind CSS
+- **Backend**: Python Flask with nba_api library
+- **Development**: Docker Compose for local development
 
-## Prerequisites
+## Quick Start
 
-- Go 1.16 or higher
-- Internet connection for NBA API access
+1. Clone the repository
+2. Run with Docker Compose:
+   ```bash
+   docker-compose up --build
+   ```
+3. Open http://localhost:3000
 
-## Installation
+## Development
 
-1. Clone the repository:
+### Prerequisites
+- Docker and Docker Compose
+- Node.js 18+ (for local frontend development)
+- Python 3.9+ (for local backend development)
+
+### Local Development
 ```bash
-git clone https://github.com/imjcham/shotchart.git
-cd shotchart
+# Start all services
+docker-compose up
+
+# Frontend only (requires backend running)
+cd frontend
+npm run dev
+
+# Backend only
+cd backend
+python -m flask run --debug
 ```
-
-2. Install dependencies:
-```bash
-go mod tidy
-```
-
-3. Run the application:
-```bash
-go run shotcharts.go
-```
-
-4. Open your browser and navigate to `http://localhost:9001`
-
-## Usage
-
-1. Start typing a player's name in the search box
-2. Select a player from the dropdown
-3. View their shot chart with distance tooltips
-4. Each dot represents a shot attempt with distance information
-
-## API
-
-The application uses the NBA Stats API to fetch shot chart data:
-- Endpoint: `stats.nba.com/stats/shotchartdetail`
-- Season: 2014-15 (configurable)
-- Data includes shot coordinates, distances, and success rates
 
 ## Project Structure
 
 ```
-shotchart/
-├── shotcharts.go          # Main web server
-├── shot/
-│   └── shot.go           # NBA API integration
-├── template/
-│   └── shotchart.html    # HTML template
-├── static/               # Static assets (CSS, JS)
+nba-shotchart-app/
+├── frontend/                 # React TypeScript frontend
+│   ├── src/
+│   │   ├── components/      # React components
+│   │   ├── services/        # API services
+│   │   ├── types/           # TypeScript interfaces
+│   │   └── utils/           # Utility functions
+│   ├── public/              # Static assets
+│   └── package.json
+├── backend/                  # Python Flask backend
+│   ├── app/
+│   │   ├── services/        # Business logic
+│   │   ├── models/          # Data models
+│   │   ├── routes/          # API endpoints
+│   │   └── utils/           # Utility functions
+│   ├── requirements.txt
+│   └── app.py
+├── docker-compose.yml        # Development environment
 └── README.md
 ```
 
-## Contributing
+## Features
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+- Interactive shot chart visualization
+- Real-time player search with typeahead
+- Shot filtering by type, period, and season
+- Responsive design for mobile devices
+- Comprehensive error handling
+- Performance optimized with caching
 
-## License
+## API Endpoints
 
-This project is open source and available under the MIT License.
+- `GET /api/health` - Health check
+- `GET /api/test` - Simple test endpoint
+- `GET /api/players/search?q={query}` - Search players
+- `GET /api/players/{id}` - Get player details
+- `GET /api/players/{id}/shots` - Get shot chart data
+- `GET /api/seasons` - Get available seasons
 
-## Acknowledgments
+## Troubleshooting
 
-- NBA Stats API for providing shot data
-- Google Charts for visualization
-- jbowens/nbagame Go library for NBA API integration
+If you encounter issues:
+
+1. **Check if services are running:**
+   ```bash
+   curl http://localhost:5000/api/health
+   ```
+
+2. **View logs:**
+   ```bash
+   docker-compose logs backend
+   docker-compose logs frontend
+   ```
+
+3. **Test API directly:**
+   ```bash
+   python test_api.py
+   ```
+
+4. **Complete reset:**
+   ```bash
+   docker-compose down -v
+   docker-compose up --build
+   ```
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed debugging steps.
